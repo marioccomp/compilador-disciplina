@@ -1,7 +1,9 @@
-%{
+%{ 
 #include <string>
 
 %}
+
+%option noyywrap
 
 ESPACO [ \t]
 DIGITO [0-9]

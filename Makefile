@@ -3,17 +3,23 @@ SCANNER_PARAMS := lexico.l
 PARSER := yacc
 PARSER_PARAMS := -d sintatico.y
 
-all: compile translate
+all: glf translate
 
-compile:
+compile: glf
+
+glf: y.tab.c lex.yy.c
+		g++ -o glf y.tab.c
+
+lex.yy.c: lexico.l
 		$(SCANNER) $(SCANNER_PARAMS)
+
+y.tab.c y.tab.h: sintatico.y
 		$(PARSER) $(PARSER_PARAMS)
-		g++ -o glf y.tab.c -ll
 
 run: 	glf
 		clear
-		compile
-		translate
+		$(MAKE) compile
+		$(MAKE) translate
 
 debug:	PARSER_PARAMS += -Wcounterexamples
 debug: 	all
@@ -22,7 +28,7 @@ translate: glf
 		./glf < exemplo.foca
 
 clean:
-	rm y.tab.c
-	rm y.tab.h
-	rm lex.yy.c
-	rm glf
+	rm -f y.tab.c
+	rm -f y.tab.h
+	rm -f lex.yy.c
+	rm -f glf
