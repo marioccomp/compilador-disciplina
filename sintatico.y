@@ -12,7 +12,15 @@ int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
 string variaveis;
-map<string, string> tabela;
+
+struct variavel
+{
+	string tipo;
+	string valor;
+};
+
+map<string, variavel> tabela;
+
 
 struct atributos
 {
@@ -43,7 +51,7 @@ bool atribuicaoCompativel(string t1, string t2);
 %start S
 
 %left '+' '-'
-%left '*'
+%left '*' '/'
 
 %%
 
@@ -104,7 +112,14 @@ TIPO		: TK_INT
 E 			: E '+' E
 			{
 				$$.label = gentempcode();
-				addVar($$.label, "int");
+				string tipo;
+				if($1.tipo == "float" || $3.tipo == "float") {
+					tipo = "float";
+				}
+				else {
+					tipo = "int";
+				}
+				addVar($$.label, tipo);
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +	
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
@@ -112,7 +127,14 @@ E 			: E '+' E
 			E '-' E
 			{
 				$$.label = gentempcode();
-				addVar($$.label, "int");
+				string tipo;
+				if($1.tipo == "float" || $3.tipo == "float") {
+					tipo = "float";
+				}
+				else {
+					tipo = "int";
+				}
+				addVar($$.label, tipo);
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " - " + $3.label + ";\n";
@@ -121,10 +143,33 @@ E 			: E '+' E
    			 E '*' E
 			{
 				$$.label = gentempcode();
-				addVar($$.label, "int");
+				string tipo;
+				if($1.tipo == "float" || $3.tipo == "float") {
+					tipo = "float";
+				}
+				else {
+					tipo = "int";
+				}
+				addVar($$.label, tipo);
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " * " + $3.label + ";\n";
+			}
+			|
+			 E '/' E
+			{
+				$$.label = gentempcode();
+				string tipo;
+				if($1.tipo == "float" || $3.tipo == "float") {
+					tipo = "float";
+				}
+				else {
+					tipo = "int";
+				}
+				addVar($$.label, tipo);
+
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
+					" = " + $1.label + " / " + $3.label + ";\n";
 			}
 			| TK_NUM
 			{
@@ -140,17 +185,26 @@ E 			: E '+' E
 				$$.tipo = "float";
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
+			| TK_ID
+			{
+				string tipo = tabela[$1.label].tipo;
+				cout << tipo << " ----- " <<  endl;
+			}
+			{
+
+			}
 			;
 D			: TIPO TK_ID
 			{
-				pair<bool, bool> ex = existsVar($2.label, "any");
+				$$.label = gentempcode();
+				pair<bool, bool> ex = existsVar($$.label, "any");
 				if(ex.first) {
-					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
+					yyerror("Variavel " + $$.label + " já foi declarada anteriormente");
 					exit(1);
 				}
-				addVar($2.label, $1.tipo);
+				addVar($$.label, $1.tipo);
 			}
-			| TK_ID '=' VALOR
+			| TK_ID '=' E
 			{
 				pair<bool, bool> ex = existsVar($1.label, $3.tipo);
 				if(!ex.first) {
@@ -158,13 +212,16 @@ D			: TIPO TK_ID
 					exit(1);
 				}
 				else if(!ex.second) {
-					yyerror("A variavel " + $1.label + " eh do tipo " + tabela[$1.label] + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
+					yyerror("A variavel " + $1.label + " eh do tipo " + tabela[$1.label].tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
 					exit(1);
 				}
+				variavel var = tabela[$1.label];
+				var.valor = $3.label;
+				tabela[$1.label] = var;
 				codigo_gerado += "\t" + $1.label + " = " + $3.label + ";\n";
 			}
 			|
-			TIPO TK_ID '=' VALOR
+			TIPO TK_ID '=' E
 			{
 				pair<bool, bool> ex = existsVar($2.label, "any");
 				if(ex.first) {
@@ -199,7 +256,9 @@ void addVar(string nome, string tipo) {
 		yyerror("Ja existe uma variavel com esse nome");
 		exit(1);
 	};
-	tabela[nome] = tipo;
+	variavel var;
+	var.tipo = tipo;
+	tabela[nome] = var;
 	if(tipo == "bool") {
 		variaveis += "\tint " + nome + ";" + "\n";
 		return;
@@ -225,7 +284,7 @@ pair<bool, bool> existsVar(string nome, string tipo) {
 		return {false, false};
 	}
 	else {
-		return {true, tabela[nome] == tipo};
+		return {true, tabela[nome].tipo == tipo};
 	}
 }
 

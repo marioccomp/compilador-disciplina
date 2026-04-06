@@ -1,10 +1,7 @@
-int a
-int b
+int t1
+int t2
+t1 = 2
 
-float c = 5
-bool d
+t2 = t1
 
-2.2 + 3
 
-d = false
-a = 1
