@@ -1,7 +1,8 @@
 %{
 #include <iostream>
 #include <string>
-#include <set>
+#include <map>
+#include <utility>
 
 #define YYSTYPE atributos
 
@@ -11,28 +12,37 @@ int var_temp_qnt;
 int linha = 1;
 string codigo_gerado;
 string variaveis;
-set<string> tabela;
+map<string, string> tabela;
 
 struct atributos
 {
 	string label;
 	string traducao;
+	string tipo;
 };
 
 int yylex(void);
 void yyerror(string);
 string gentempcode();
-void addVar(string variavel);
+void addVar(string nome, string tipo);
+pair<bool, bool> existsVar(string nome, string tipo);
+bool atribuicaoCompativel(string t1, string t2);
 %}
 
 %token TK_NUM
 %token TK_ID
 %token TK_INT
 %token TK_FLOAT
+%token TK_CHAR
+%token TK_LETTER
+%token TK_TRUE
+%token TK_FALSE
+%token TK_BOOL
+%token TK_FLOAT_LIT
 
 %start S
 
-%left '+','-'
+%left '+' '-'
 %left '*'
 
 %%
@@ -52,11 +62,49 @@ CMD			: E
 			|
 			D
 			;
+VALOR		: TK_TRUE
+			{
+				$$.tipo = "bool";
+			}
+			| TK_FALSE
+			{
+				$$.tipo = "bool";
+			}
+			| TK_LETTER
+			{
+				$$.tipo = "char";	
+			} 
+			| TK_NUM
+			{
+				$$.tipo = "int";
+			}
+			| TK_FLOAT_LIT
+			{
+				$$.tipo = "float";
+			}
+			;
 
+TIPO		: TK_INT
+			{
+				$$.tipo = "int";
+			}
+			| TK_BOOL
+			{
+				$$.tipo = "bool";
+			}
+			| TK_FLOAT
+			{
+				$$.tipo = "float";
+			}
+			| TK_CHAR
+			{
+				$$.tipo = "char";
+			}
+			;
 E 			: E '+' E
 			{
 				$$.label = gentempcode();
-				addVar("int " + $$.label);
+				addVar($$.label, "int");
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +	
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
@@ -64,7 +112,7 @@ E 			: E '+' E
 			E '-' E
 			{
 				$$.label = gentempcode();
-				addVar("int " + $$.label);
+				addVar($$.label, "int");
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " - " + $3.label + ";\n";
@@ -73,7 +121,7 @@ E 			: E '+' E
    			 E '*' E
 			{
 				$$.label = gentempcode();
-				addVar("int " + $$.label);
+				addVar($$.label, "int");
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " * " + $3.label + ";\n";
@@ -81,25 +129,55 @@ E 			: E '+' E
 			| TK_NUM
 			{
 				$$.label = gentempcode();
-				addVar("int " + $$.label);
+				addVar($$.label, "int");
+				$$.tipo = "int";
+				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+			}
+			| TK_FLOAT_LIT
+			{
+				$$.label = gentempcode();
+				addVar($$.label, "float");
+				$$.tipo = "float";
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 			;
-D			: TK_INT TK_ID
+D			: TIPO TK_ID
 			{
-				addVar("int " + $2.label);
+				pair<bool, bool> ex = existsVar($2.label, "any");
+				if(ex.first) {
+					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
+					exit(1);
+				}
+				addVar($2.label, $1.tipo);
+			}
+			| TK_ID '=' VALOR
+			{
+				pair<bool, bool> ex = existsVar($1.label, $3.tipo);
+				if(!ex.first) {
+					yyerror("Variavel nao declarada");
+					exit(1);
+				}
+				else if(!ex.second) {
+					yyerror("A variavel " + $1.label + " eh do tipo " + tabela[$1.label] + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
+					exit(1);
+				}
+				codigo_gerado += "\t" + $1.label + " = " + $3.label + ";\n";
 			}
 			|
-			TK_INT TK_ID '=' E
+			TIPO TK_ID '=' VALOR
 			{
-				addVar("int " + $2.label);
+				pair<bool, bool> ex = existsVar($2.label, "any");
+				if(ex.first) {
+					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
+					exit(1);
+				}
+				if(!atribuicaoCompativel($1.tipo, $4.tipo)) { // aqui depois posso colocar a funcao que verifica se tipos sao compativeis
+					yyerror("Tipos incompativeis de atribuição (" + $1.tipo + ", " + $4.tipo + ")");
+					exit(1);
+				}
+				addVar($2.label, $1.tipo);
 				codigo_gerado += $4.traducao;
 				codigo_gerado += "\t" + $2.label + " = " + $4.label + ";\n";
-			}
-			|
-			TK_FLOAT TK_ID
-			{
-				addVar("float " + $2.label);
 			}
 			;
 
@@ -116,14 +194,39 @@ string cabecalho() {
 	return codigo;
 }
 
-void addVar(string variavel) {
-	string nome = variavel.substr(variavel.find(' ') + 1);
+void addVar(string nome, string tipo) {
 	if(tabela.find(nome) != tabela.end()) {
 		yyerror("Ja existe uma variavel com esse nome");
 		exit(1);
 	};
-	tabela.insert(nome);
-	variaveis += "\t" + variavel + ";" + "\n";
+	tabela[nome] = tipo;
+	if(tipo == "bool") {
+		variaveis += "\tint " + nome + ";" + "\n";
+		return;
+	}
+	variaveis += "\t" + tipo + " " + nome + ";" + "\n";
+}
+
+bool isNumerico(string t) {
+	return t == "int" || t == "float";
+}
+
+bool atribuicaoCompativel(string t1, string t2) {
+	if(t1 == t2) return true;
+
+	if(isNumerico(t1) && isNumerico(t2)) return true;
+
+	return false;
+}
+
+pair<bool, bool> existsVar(string nome, string tipo) {
+	bool exists = tabela.find(nome) != tabela.end();
+	if(!exists) {
+		return {false, false};
+	}
+	else {
+		return {true, tabela[nome] == tipo};
+	}
 }
 
 
@@ -145,7 +248,7 @@ int main(int argc, char* argv[])
 
 	if (yyparse() == 0) {
 		cout << cabecalho();
-		cout << variaveis;
+		cout << variaveis << endl;
 		cout << codigo_gerado;
 		cout << footer();
 	}

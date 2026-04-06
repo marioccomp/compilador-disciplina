@@ -1,10 +1,10 @@
+int a
+int b
 
+float c = 5
+bool d
 
-1 + 2 + 3
-int a = 5
+2.2 + 3
 
-float a
-
-
-
-
+d = false
+a = 1
