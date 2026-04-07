@@ -35,6 +35,7 @@ string gentempcode();
 void addVar(string nome, string tipo);
 pair<bool, bool> existsVar(string nome, string tipo);
 bool atribuicaoCompativel(string t1, string t2);
+void nomeReservado(const string& nome);
 %}
 
 %token TK_NUM
@@ -120,6 +121,7 @@ E 			: E '+' E
 					tipo = "int";
 				}
 				addVar($$.label, tipo);
+				$$.tipo = tipo;
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +	
 					" = " + $1.label + " + " + $3.label + ";\n";
 			}
@@ -135,6 +137,7 @@ E 			: E '+' E
 					tipo = "int";
 				}
 				addVar($$.label, tipo);
+				$$.tipo = tipo;
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " - " + $3.label + ";\n";
@@ -151,6 +154,8 @@ E 			: E '+' E
 					tipo = "int";
 				}
 				addVar($$.label, tipo);
+				$$.tipo = tipo;
+
 
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " * " + $3.label + ";\n";
@@ -167,10 +172,14 @@ E 			: E '+' E
 					tipo = "int";
 				}
 				addVar($$.label, tipo);
-
+				$$.tipo = tipo;
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
 					" = " + $1.label + " / " + $3.label + ";\n";
 			}
+			 | '(' E ')'
+    		{
+       			$$ = $2;
+    		}
 			| TK_NUM
 			{
 				$$.label = gentempcode();
@@ -187,22 +196,27 @@ E 			: E '+' E
 			}
 			| TK_ID
 			{
+				nomeReservado($1.label);
+				if(!existsVar($1.label, "any").first) {
+					yyerror("Variavel " + $1.label + " nao foi declarada anteriormente");
+					exit(1);
+				}
 				string tipo = tabela[$1.label].tipo;
-				cout << tipo << " ----- " <<  endl;
-			}
-			{
-
+				$$.label = gentempcode();
+				addVar($$.label, tipo);
+				$$.tipo = tipo;
+				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 			;
 D			: TIPO TK_ID
 			{
-				$$.label = gentempcode();
-				pair<bool, bool> ex = existsVar($$.label, "any");
+				nomeReservado($2.label);
+				pair<bool, bool> ex = existsVar($2.label, "any");
 				if(ex.first) {
-					yyerror("Variavel " + $$.label + " já foi declarada anteriormente");
+					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
 					exit(1);
 				}
-				addVar($$.label, $1.tipo);
+				addVar($2.label, $1.tipo);
 			}
 			| TK_ID '=' E
 			{
@@ -211,18 +225,20 @@ D			: TIPO TK_ID
 					yyerror("Variavel nao declarada");
 					exit(1);
 				}
-				else if(!ex.second) {
+				else if(!atribuicaoCompativel(tabela[$1.label].tipo, $3.tipo)) {
 					yyerror("A variavel " + $1.label + " eh do tipo " + tabela[$1.label].tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
 					exit(1);
 				}
 				variavel var = tabela[$1.label];
 				var.valor = $3.label;
 				tabela[$1.label] = var;
+				codigo_gerado += $3.traducao;
 				codigo_gerado += "\t" + $1.label + " = " + $3.label + ";\n";
 			}
 			|
 			TIPO TK_ID '=' E
 			{
+				nomeReservado($2.label);
 				pair<bool, bool> ex = existsVar($2.label, "any");
 				if(ex.first) {
 					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
@@ -252,6 +268,7 @@ string cabecalho() {
 }
 
 void addVar(string nome, string tipo) {
+
 	if(tabela.find(nome) != tabela.end()) {
 		yyerror("Ja existe uma variavel com esse nome");
 		exit(1);
@@ -264,6 +281,13 @@ void addVar(string nome, string tipo) {
 		return;
 	}
 	variaveis += "\t" + tipo + " " + nome + ";" + "\n";
+}
+
+void nomeReservado(const string& nome) {
+    if(nome.rfind("___t", 0) == 0) {
+		yyerror("Variaveis que iniciam com ___t são exclusivas do compilador");
+		exit(1);
+	}
 }
 
 bool isNumerico(string t) {
@@ -298,7 +322,7 @@ string footer() {
 string gentempcode()
 {
 	var_temp_qnt++;
-	return "t" + to_string(var_temp_qnt);
+	return "___t" + to_string(var_temp_qnt);
 }
 
 int main(int argc, char* argv[])

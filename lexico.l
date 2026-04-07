@@ -34,6 +34,8 @@ NUM {DIGITO}+
 "bool"      { return TK_BOOL; }
 "false"     { yylval.label = "0"; return TK_FALSE;}
 "true"     { yylval.label = "1"; return TK_TRUE;}
+"("        { return '('; }
+")"        { return ')'; }
 \'[a-zA-Z]\' { yylval.label = yytext; return TK_LETTER; }
 "="          {return '=';}
 
