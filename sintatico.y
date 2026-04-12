@@ -48,6 +48,7 @@ void nomeReservado(const string& nome);
 %token TK_FALSE
 %token TK_BOOL
 %token TK_FLOAT_LIT
+%token TK_RELACIONAL
 
 %start S
 
@@ -180,6 +181,13 @@ E 			: E '+' E
     		{
        			$$ = $2;
     		}
+			| E TK_RELACIONAL E
+			{
+				$$.label = gentempcode();
+				addVar($$.label, "bool");
+				$$.tipo = "bool";
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label +  ";\n";
+			}
 			| TK_NUM
 			{
 				$$.label = gentempcode();
@@ -205,6 +213,13 @@ E 			: E '+' E
 				$$.label = gentempcode();
 				addVar($$.label, tipo);
 				$$.tipo = tipo;
+				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+			}
+			| VALOR
+			{
+				$$.label = gentempcode();
+				addVar($$.label, $1.tipo);
+				$$.tipo = $1.tipo;
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
 			;
