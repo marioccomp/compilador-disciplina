@@ -138,19 +138,38 @@ E 			: E '+' E
 					yyerror("Voce nao pode subtrair um " + $3.tipo + " de um " + $1.tipo);
 					exit(1);
 				}
-				$$.label = gentempcode();
-				string tipo;
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
 
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " - " + $3.label + ";\n";
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n"; 
+					op1 = temp_cast;
+				}
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n"; 
+					op3 = temp_cast;
+				}
+
+				$$.label = gentempcode();
+
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
+
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " - " + op3 + ";\n";
 			}
 			|
    			 E '*' E
@@ -160,20 +179,38 @@ E 			: E '+' E
 					yyerror("Voce nao pode multiplicar um " + $1.tipo + " por um " + $3.tipo);
 					exit(1);
 				}
-				$$.label = gentempcode();
-				string tipo;
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+					op1 = temp_cast; 
+				}
+
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+					op3 = temp_cast; 
+				} 
+				$$.label = gentempcode();
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
 
 
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " * " + $3.label + ";\n";
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " * " + op3 + ";\n";
 			}
 			|
 			 E '/' E
@@ -183,18 +220,38 @@ E 			: E '+' E
 					yyerror("Voce nao pode dividir um " + $1.tipo + " por um " + $3.tipo);
 					exit(1);
 				}
-				$$.label = gentempcode();
-				string tipo;
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " / " + $3.label + ";\n";
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+					op1 = temp_cast;
+				}
+
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+					op3 = temp_cast;
+				}
+
+				$$.label = gentempcode();
+
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " / " + op3 + ";\n";
 			}
 			 | '(' E ')'
     		{

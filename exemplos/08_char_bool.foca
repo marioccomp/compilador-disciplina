@@ -1,5 +1,2 @@
-char C;
-C = 'a';
-
 bool B;
 B = true;
