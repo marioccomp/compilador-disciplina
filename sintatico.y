@@ -72,27 +72,6 @@ CMD			: E
 			|
 			D
 			;
-VALOR		: TK_TRUE
-			{
-				$$.tipo = "bool";
-			}
-			| TK_FALSE
-			{
-				$$.tipo = "bool";
-			}
-			| TK_LETTER
-			{
-				$$.tipo = "char";	
-			} 
-			| TK_NUM
-			{
-				$$.tipo = "int";
-			}
-			| TK_FLOAT_LIT
-			{
-				$$.tipo = "float";
-			}
-			;
 
 TIPO		: TK_INT
 			{
@@ -113,69 +92,167 @@ TIPO		: TK_INT
 			;
 E 			: E '+' E
 			{
-				$$.label = gentempcode();
-				string tipo;
+				bool operacaoCompativel = atribuicaoCompativel($1.tipo, $3.tipo);
+				if(!operacaoCompativel) {
+					yyerror("Voce nao pode somar um " + $1.tipo + " com um " + $3.tipo);
+					exit(1);
+				}
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +	
-					" = " + $1.label + " + " + $3.label + ";\n";
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+					op1 = temp_cast;
+				}
+
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+					op3 = temp_cast;
+				}
+				$$.label = gentempcode();
+
+
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
+
+				$$.traducao = traducao + "\t" + $$.label +	
+					" = " + op1 + " + " + op3 + ";\n";
 			}
 			|
 			E '-' E
 			{
-				$$.label = gentempcode();
-				string tipo;
+				bool operacaoCompativel = atribuicaoCompativel($1.tipo, $3.tipo);
+				if(!operacaoCompativel) {
+					yyerror("Voce nao pode subtrair um " + $3.tipo + " de um " + $1.tipo);
+					exit(1);
+				}
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
 
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " - " + $3.label + ";\n";
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n"; 
+					op1 = temp_cast;
+				}
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n"; 
+					op3 = temp_cast;
+				}
+
+				$$.label = gentempcode();
+
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
+
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " - " + op3 + ";\n";
 			}
 			|
    			 E '*' E
 			{
-				$$.label = gentempcode();
-				string tipo;
+				bool operacaoCompativel = atribuicaoCompativel($1.tipo, $3.tipo);
+				if(!operacaoCompativel) {
+					yyerror("Voce nao pode multiplicar um " + $1.tipo + " por um " + $3.tipo);
+					exit(1);
+				}
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+					op1 = temp_cast; 
+				}
+
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+					op3 = temp_cast; 
+				} 
+				$$.label = gentempcode();
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
 
 
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " * " + $3.label + ";\n";
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " * " + op3 + ";\n";
 			}
 			|
 			 E '/' E
 			{
-				$$.label = gentempcode();
-				string tipo;
+				bool operacaoCompativel = atribuicaoCompativel($1.tipo, $3.tipo);
+				if(!operacaoCompativel) {
+					yyerror("Voce nao pode dividir um " + $1.tipo + " por um " + $3.tipo);
+					exit(1);
+				}
+				string tipo_resultado;
 				if($1.tipo == "float" || $3.tipo == "float") {
-					tipo = "float";
+					tipo_resultado = "float";
 				}
 				else {
-					tipo = "int";
+					tipo_resultado = "int";
 				}
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label +
-					" = " + $1.label + " / " + $3.label + ";\n";
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if($1.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+					op1 = temp_cast;
+				}
+
+				if($3.tipo == "int" && tipo_resultado == "float") {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, "float");
+					traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+					op3 = temp_cast;
+				}
+
+				$$.label = gentempcode();
+
+				addVar($$.label, tipo_resultado);
+				$$.tipo = tipo_resultado;
+				$$.traducao = traducao + "\t" + $$.label +
+					" = " + op1 + " / " + op3 + ";\n";
 			}
 			 | '(' E ')'
     		{
@@ -211,6 +288,7 @@ E 			: E '+' E
 				}
 				string tipo = tabela[$1.label].tipo;
 				$$.label = gentempcode();
+				cout << "------- " << $$.label << "  -------  " << $$.tipo << "<<<<< " << endl;
 				addVar($$.label, tipo);
 				$$.tipo = tipo;
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
