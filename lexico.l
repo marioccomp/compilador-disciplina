@@ -38,6 +38,11 @@ NUM {DIGITO}+
 ")"        { return ')'; }
 \'[a-zA-Z]\' { yylval.label = yytext; return TK_LETTER; }
 "="          {return '=';}
+"=="         {yylval.label = yytext; return TK_RELACIONAL;}
+"<"         {yylval.label = yytext; return TK_RELACIONAL;}
+">"         {yylval.label = yytext; return TK_RELACIONAL;}
+">="         {yylval.label = yytext; return TK_RELACIONAL;}
+"<="         {yylval.label = yytext; return TK_RELACIONAL;}
 
 {VAR}       { yylval.label = yytext; return TK_ID; }
 
