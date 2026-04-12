@@ -52,6 +52,7 @@ void nomeReservado(const string& nome);
 
 %start S
 
+%left TK_RELACIONAL
 %left '+' '-'
 %left '*' '/'
 
@@ -88,6 +89,27 @@ TIPO		: TK_INT
 			| TK_CHAR
 			{
 				$$.tipo = "char";
+			}
+			;
+VALOR		: TK_TRUE
+			{
+				$$.tipo = "bool";
+			}
+			| TK_FALSE
+			{
+				$$.tipo = "bool";
+			}
+			| TK_LETTER
+			{
+				$$.tipo = "char";	
+			} 
+			| TK_NUM
+			{
+				$$.tipo = "int";
+			}
+			| TK_FLOAT_LIT
+			{
+				$$.tipo = "float";
 			}
 			;
 E 			: E '+' E
@@ -265,20 +287,6 @@ E 			: E '+' E
 				$$.tipo = "bool";
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label +  ";\n";
 			}
-			| TK_NUM
-			{
-				$$.label = gentempcode();
-				addVar($$.label, "int");
-				$$.tipo = "int";
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
-			}
-			| TK_FLOAT_LIT
-			{
-				$$.label = gentempcode();
-				addVar($$.label, "float");
-				$$.tipo = "float";
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
-			}
 			| TK_ID
 			{
 				nomeReservado($1.label);
@@ -288,7 +296,6 @@ E 			: E '+' E
 				}
 				string tipo = tabela[$1.label].tipo;
 				$$.label = gentempcode();
-				cout << "------- " << $$.label << "  -------  " << $$.tipo << "<<<<< " << endl;
 				addVar($$.label, tipo);
 				$$.tipo = tipo;
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
