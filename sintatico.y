@@ -9,12 +9,14 @@
 using namespace std;
 
 int var_temp_qnt;
+int var_chave_qnt;
 int linha = 1;
 string codigo_gerado;
 string variaveis;
 
 struct variavel
 {
+	string nome_interno;
 	string tipo;
 	string valor;
 };
@@ -32,10 +34,10 @@ struct atributos
 int yylex(void);
 void yyerror(string);
 string gentempcode();
-void addVar(string nome, string tipo);
+string get_chave_temp();
+void addVar(string nome, string tipo, bool interno = true, string nome_interno = "");
 pair<bool, bool> existsVar(string nome, string tipo);
 bool atribuicaoCompativel(string t1, string t2);
-void nomeReservado(const string& nome);
 %}
 
 %token TK_NUM
@@ -278,7 +280,7 @@ E 			: E '+' E
 			}
 			 | '(' E ')'
     		{
-       			$$ = $2;
+       			$$ = $2; 
     		}
 			| E TK_RELACIONAL E
 			{
@@ -289,16 +291,16 @@ E 			: E '+' E
 			}
 			| TK_ID
 			{
-				nomeReservado($1.label);
 				if(!existsVar($1.label, "any").first) {
 					yyerror("Variavel " + $1.label + " nao foi declarada anteriormente");
 					exit(1);
 				}
-				string tipo = tabela[$1.label].tipo;
+				variavel var = tabela[$1.label];
+				string tipo = var.tipo;
 				$$.label = gentempcode();
 				addVar($$.label, tipo);
 				$$.tipo = tipo;
-				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
+				$$.traducao = "\t" + $$.label + " = " + var.nome_interno + ";\n";
 			}
 			| VALOR
 			{
@@ -307,16 +309,17 @@ E 			: E '+' E
 				$$.tipo = $1.tipo;
 				$$.traducao = "\t" + $$.label + " = " + $1.label + ";\n";
 			}
+
 			;
 D			: TIPO TK_ID
 			{
-				nomeReservado($2.label);
 				pair<bool, bool> ex = existsVar($2.label, "any");
+				string var = gentempcode();
 				if(ex.first) {
 					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
 					exit(1);
 				}
-				addVar($2.label, $1.tipo);
+				addVar($2.label, $1.tipo, false, var);
 			}
 			| TK_ID '=' E
 			{
@@ -338,7 +341,6 @@ D			: TIPO TK_ID
 			|
 			TIPO TK_ID '=' E
 			{
-				nomeReservado($2.label);
 				pair<bool, bool> ex = existsVar($2.label, "any");
 				if(ex.first) {
 					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
@@ -348,9 +350,10 @@ D			: TIPO TK_ID
 					yyerror("Tipos incompativeis de atribuição (" + $1.tipo + ", " + $4.tipo + ")");
 					exit(1);
 				}
-				addVar($2.label, $1.tipo);
+				string var = gentempcode();
+				addVar($2.label, $1.tipo, false, var);
 				codigo_gerado += $4.traducao;
-				codigo_gerado += "\t" + $2.label + " = " + $4.label + ";\n";
+				codigo_gerado += "\t" + var + " = " + $4.label + ";\n";
 			}
 			;
 
@@ -367,27 +370,40 @@ string cabecalho() {
 	return codigo;
 }
 
-void addVar(string nome, string tipo) {
+void addVar(string nome, string tipo, bool interno, string nome_interno) {
 
-	if(tabela.find(nome) != tabela.end()) {
-		yyerror("Ja existe uma variavel com esse nome");
-		exit(1);
-	};
+	if(!interno) {
+		if(tabela.find(nome) != tabela.end()) {
+			yyerror("Ja existe uma variavel com esse nome");
+			exit(1);
+		};
+
+		variavel v;
+		v.nome_interno = nome_interno;
+		v.tipo = tipo;
+		v.valor = "";
+		tabela[nome] = v;
+		if(tipo == "bool") {
+			variaveis += "\tint " + nome_interno + ";" + "\n";
+			return;
+		}
+		variaveis += "\t" + tipo + " " + nome_interno + ";" + "\n";
+
+		return;
+	}
+	
 	variavel var;
 	var.tipo = tipo;
-	tabela[nome] = var;
+	var.nome_interno = nome;
+
+	string nome_temp = get_chave_temp(); 
+
+	tabela[nome_temp] = var;
 	if(tipo == "bool") {
 		variaveis += "\tint " + nome + ";" + "\n";
 		return;
 	}
 	variaveis += "\t" + tipo + " " + nome + ";" + "\n";
-}
-
-void nomeReservado(const string& nome) {
-    if(nome.rfind("___t", 0) == 0) {
-		yyerror("Variaveis que iniciam com ___t são exclusivas do compilador");
-		exit(1);
-	}
 }
 
 bool isNumerico(string t) {
@@ -422,12 +438,19 @@ string footer() {
 string gentempcode()
 {
 	var_temp_qnt++;
-	return "___t" + to_string(var_temp_qnt);
+	return "t" + to_string(var_temp_qnt);
+}
+
+string get_chave_temp()
+{
+	var_chave_qnt++;
+	return "@!" + to_string(var_chave_qnt);
 }
 
 int main(int argc, char* argv[])
 {
 	var_temp_qnt = 0;
+	var_chave_qnt = 0;
 
 	if (yyparse() == 0) {
 		cout << cabecalho();
