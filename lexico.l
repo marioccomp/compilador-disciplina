@@ -43,6 +43,10 @@ NUM {DIGITO}+
 ">"         {yylval.label = yytext; return TK_RELACIONAL;}
 ">="         {yylval.label = yytext; return TK_RELACIONAL;}
 "<="         {yylval.label = yytext; return TK_RELACIONAL;}
+"||"         {yylval.label = yytext; return TK_LOGICO;}
+"&&"        {yylval.label = yytext; return TK_LOGICO;}
+"!"         {yylval.label = yytext; return TK_NOT;}
+"^"         {yylval.label = yytext; return TK_LOGICO;}
 
 {VAR}       { yylval.label = yytext; return TK_ID; }
 
