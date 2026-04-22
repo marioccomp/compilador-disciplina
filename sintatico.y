@@ -51,9 +51,12 @@ bool atribuicaoCompativel(string t1, string t2);
 %token TK_BOOL
 %token TK_FLOAT_LIT
 %token TK_RELACIONAL
+%token TK_LOGICO
 
 %start S
 
+%left TK_LOGICO
+%left TK_NOT
 %left TK_RELACIONAL
 %left '+' '-'
 %left '*' '/'
@@ -282,12 +285,40 @@ E 			: E '+' E
     		{
        			$$ = $2; 
     		}
+			| '(' TIPO ')' E
+			{
+				if(!atribuicaoCompativel($2.tipo, $4.tipo)) {
+					yyerror("Conversão invalida de " + $4.tipo + " para " + $2.tipo);
+					exit(1);
+				}
+
+				$$.label = gentempcode();
+				addVar($$.label, $2.tipo);
+				$$.tipo = $2.tipo;
+
+				$$.traducao = $4.traducao + "\t" + $$.label + " = (" + $2.tipo + ") " + $4.label + ";\n";
+			}
 			| E TK_RELACIONAL E
 			{
 				$$.label = gentempcode();
 				addVar($$.label, "bool");
 				$$.tipo = "bool";
-				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label +  ";\n";
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
+			}
+			| E TK_LOGICO E
+			{
+				$$.label = gentempcode();
+				addVar($$.label, "bool");
+				$$.tipo = "bool";
+				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
+
+			}
+			| TK_NOT E
+			{
+				$$.label = gentempcode();
+				addVar($$.label, "bool");
+				$$.tipo = "bool";
+				$$.traducao = $2.traducao + "\t" + $$.label + " = " + $1.label + $2.label + ";\n";
 			}
 			| TK_ID
 			{
@@ -324,19 +355,33 @@ D			: TIPO TK_ID
 			| TK_ID '=' E
 			{
 				pair<bool, bool> ex = existsVar($1.label, $3.tipo);
+				variavel var = tabela[$1.label];
+
 				if(!ex.first) {
 					yyerror("Variavel nao declarada");
 					exit(1);
 				}
-				else if(!atribuicaoCompativel(tabela[$1.label].tipo, $3.tipo)) {
-					yyerror("A variavel " + $1.label + " eh do tipo " + tabela[$1.label].tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
+				
+
+				else if(!atribuicaoCompativel(var.tipo, $3.tipo)) {
+					yyerror("A variavel " + $1.label + " eh do tipo " + var.tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
 					exit(1);
 				}
-				variavel var = tabela[$1.label];
-				var.valor = $3.label;
+
+				string traducao = $3.traducao;
+				string origem = $3.label;
+				if(var.tipo != $3.tipo) {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, var.tipo);
+					traducao += "\t" + temp_cast + " = (" + var.tipo + ") " + $3.label + ";\n";
+					origem = temp_cast;
+				}
+
+				var.valor = origem;
 				tabela[$1.label] = var;
-				codigo_gerado += $3.traducao;
-				codigo_gerado += "\t" + $1.label + " = " + $3.label + ";\n";
+
+				codigo_gerado += traducao;
+				codigo_gerado += "\t" + var.nome_interno + " = " + origem + ";\n";
 			}
 			|
 			TIPO TK_ID '=' E
