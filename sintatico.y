@@ -361,6 +361,7 @@ D			: TIPO TK_ID
 					yyerror("Variavel nao declarada");
 					exit(1);
 				}
+
 				else if(!atribuicaoCompativel(var.tipo, $3.tipo)) {
 					yyerror("A variavel " + $1.label + " eh do tipo " + var.tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
 					exit(1);
