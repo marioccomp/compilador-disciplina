@@ -345,11 +345,11 @@ E 			: E '+' E
 D			: TIPO TK_ID
 			{
 				pair<bool, bool> ex = existsVar($2.label, "any");
-				string var = gentempcode();
 				if(ex.first) {
 					yyerror("Variavel " + $2.label + " já foi declarada anteriormente");
 					exit(1);
 				}
+				string var = gentempcode();
 				addVar($2.label, $1.tipo, false, var);
 			}
 			| TK_ID '=' E
@@ -361,7 +361,6 @@ D			: TIPO TK_ID
 					yyerror("Variavel nao declarada");
 					exit(1);
 				}
-				
 
 				else if(!atribuicaoCompativel(var.tipo, $3.tipo)) {
 					yyerror("A variavel " + $1.label + " eh do tipo " + var.tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
