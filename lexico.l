@@ -43,10 +43,11 @@ NUM {DIGITO}+
 ">"         {yylval.label = yytext; return TK_RELACIONAL;}
 ">="         {yylval.label = yytext; return TK_RELACIONAL;}
 "<="         {yylval.label = yytext; return TK_RELACIONAL;}
-"||"         {yylval.label = yytext; return TK_LOGICO;}
-"&&"        {yylval.label = yytext; return TK_LOGICO;}
+"!="        {yylval.label = yytext; return TK_RELACIONAL;}
+"||"         {yylval.label = yytext; return TK_OR;}
+"&&"        {yylval.label = yytext; return TK_AND;}
 "!"         {yylval.label = yytext; return TK_NOT;}
-"^"         {yylval.label = yytext; return TK_LOGICO;}
+";"         {return ';';}
 
 {VAR}       { yylval.label = yytext; return TK_ID; }
 

@@ -38,6 +38,10 @@ string get_chave_temp();
 void addVar(string nome, string tipo, bool interno = true, string nome_interno = "");
 pair<bool, bool> existsVar(string nome, string tipo);
 bool atribuicaoCompativel(string t1, string t2);
+bool isNumerico(string t);
+bool isBool(string t);
+bool relacionalCompativel(string op, string t1, string t2);
+bool logicoCompativel(string t1, string t2);
 %}
 
 %token TK_NUM
@@ -51,25 +55,43 @@ bool atribuicaoCompativel(string t1, string t2);
 %token TK_BOOL
 %token TK_FLOAT_LIT
 %token TK_RELACIONAL
-%token TK_LOGICO
+%token TK_OR
+%token TK_NOT
+%token TK_AND
 
 %start S
 
-%left TK_LOGICO
-%left TK_NOT
+%left TK_OR
+%left TK_AND
 %left TK_RELACIONAL
 %left '+' '-'
 %left '*' '/'
+%right TK_NOT TK_CAST TK_NEG
+
 
 %%
 
 
-S			:  CMD '\n' S
-			| '\n' S
-			| '\n'
-			| CMD '\n'
-			| CMD
-			;
+S           : INICIO CMDS FINAIS
+            | INICIO CMDS
+			| INICIO
+            ;
+
+INICIO      : 
+            | FINAIS
+            ;
+
+CMDS        : CMD
+            | CMDS FINAIS CMD
+            ;
+
+FINAIS      : FIM
+            | FINAIS FIM
+            ;
+
+FIM         : '\n'
+            | ';'
+            ;
 
 CMD			: E
 			{
@@ -285,10 +307,23 @@ E 			: E '+' E
     		{
        			$$ = $2; 
     		}
-			| '(' TIPO ')' E
+			| '-' E %prec TK_NEG
+			{
+				if(!isNumerico($2.tipo)) {
+					yyerror("simbolo - invalido para o tipo " + $2.tipo);
+					exit(1);
+				}
+
+				$$.label = gentempcode();
+				addVar($$.label, $2.tipo);
+				$$.tipo = $2.tipo;
+
+				$$.traducao = $2.traducao + "\t" + $$.label + " = -" + $2.label + ";\n";
+			}
+			| '(' TIPO ')' E %prec TK_CAST
 			{
 				if(!atribuicaoCompativel($2.tipo, $4.tipo)) {
-					yyerror("Conversão invalida de " + $4.tipo + " para " + $2.tipo);
+					yyerror("conversao invalida de " + $4.tipo + " para " + $2.tipo);
 					exit(1);
 				}
 
@@ -300,13 +335,59 @@ E 			: E '+' E
 			}
 			| E TK_RELACIONAL E
 			{
+
+				if(!relacionalCompativel($2.label, $1.tipo, $3.tipo)) {
+					yyerror("Operacao relacional invalida: " + $1.tipo + " " + $2.label + " " + $3.tipo);
+					exit(1);
+				}
+
+				string traducao = $1.traducao + $3.traducao;
+				string op1 = $1.label;
+				string op3 = $3.label;
+
+				if(isNumerico($1.tipo) && isNumerico($3.tipo) && $1.tipo != $3.tipo) {
+					if($1.tipo == "int") {
+						string temp_cast = gentempcode();
+						addVar(temp_cast, "float");
+						traducao += "\t" + temp_cast + " = (float) " + $1.label + ";\n";
+						op1 = temp_cast;
+					}
+
+					if($3.tipo == "int") {
+						string temp_cast = gentempcode();
+						addVar(temp_cast, "float");
+						traducao += "\t" + temp_cast + " = (float) " + $3.label + ";\n";
+						op3 = temp_cast;
+					}
+				}
+
+				$$.label = gentempcode();
+				addVar($$.label, "bool");
+				$$.tipo = "bool";
+				$$.traducao = traducao + "\t" + $$.label + " = " + op1 + " " + $2.label + " " + op3 + ";\n";
+			}
+			| E TK_OR E
+			{
+
+				if(!logicoCompativel($1.tipo, $3.tipo)) {
+					yyerror("Operacao logica invalida: " + $1.tipo + " " + $2.label + " " + $3.tipo);
+					exit(1);
+				}
+
 				$$.label = gentempcode();
 				addVar($$.label, "bool");
 				$$.tipo = "bool";
 				$$.traducao = $1.traducao + $3.traducao + "\t" + $$.label + " = " + $1.label + " " + $2.label + " " + $3.label + ";\n";
+
 			}
-			| E TK_LOGICO E
+			| E TK_AND E
 			{
+
+				if(!logicoCompativel($1.tipo, $3.tipo)) {
+					yyerror("Operacao logica invalida: " + $1.tipo + " " + $2.label + " " + $3.tipo);
+					exit(1);
+				}
+
 				$$.label = gentempcode();
 				addVar($$.label, "bool");
 				$$.tipo = "bool";
@@ -315,10 +396,16 @@ E 			: E '+' E
 			}
 			| TK_NOT E
 			{
+
+				if($2.tipo != "bool") {
+					yyerror("Operacao de negacao invalida: !" + $2.tipo);
+					exit(1);
+				}
+
 				$$.label = gentempcode();
 				addVar($$.label, "bool");
 				$$.tipo = "bool";
-				$$.traducao = $2.traducao + "\t" + $$.label + " = " + $1.label + $2.label + ";\n";
+				$$.traducao = $2.traducao + "\t" + $$.label + " = !" + $2.label + ";\n";
 			}
 			| TK_ID
 			{
@@ -327,11 +414,9 @@ E 			: E '+' E
 					exit(1);
 				}
 				variavel var = tabela[$1.label];
-				string tipo = var.tipo;
-				$$.label = gentempcode();
-				addVar($$.label, tipo);
-				$$.tipo = tipo;
-				$$.traducao = "\t" + $$.label + " = " + var.nome_interno + ";\n";
+				$$.label = var.nome_interno;
+				$$.tipo = var.tipo;
+				$$.traducao = "";
 			}
 			| VALOR
 			{
@@ -355,6 +440,7 @@ D			: TIPO TK_ID
 			| TK_ID '=' E
 			{
 				pair<bool, bool> ex = existsVar($1.label, $3.tipo);
+
 				variavel var = tabela[$1.label];
 
 				if(!ex.first) {
@@ -366,6 +452,11 @@ D			: TIPO TK_ID
 					yyerror("A variavel " + $1.label + " eh do tipo " + var.tipo + " e vc tentou associar ela com um valor do tipo " + $3.tipo);
 					exit(1);
 				}
+
+				
+
+
+				
 
 				string traducao = $3.traducao;
 				string origem = $3.label;
@@ -396,8 +487,18 @@ D			: TIPO TK_ID
 				}
 				string var = gentempcode();
 				addVar($2.label, $1.tipo, false, var);
-				codigo_gerado += $4.traducao;
-				codigo_gerado += "\t" + var + " = " + $4.label + ";\n";
+
+				string traducao = $4.traducao;
+				string origem = $4.label;
+
+				if($1.tipo != $4.tipo) {
+					string temp_cast = gentempcode();
+					addVar(temp_cast, $1.tipo);
+					traducao += "\t" + temp_cast + " = (" + $1.tipo + ") " + $4.label + ";\n";
+					origem = temp_cast;
+				}
+				codigo_gerado += traducao;
+				codigo_gerado += "\t" + var + " = " + origem + ";\n";
 			}
 			;
 
@@ -452,6 +553,28 @@ void addVar(string nome, string tipo, bool interno, string nome_interno) {
 
 bool isNumerico(string t) {
 	return t == "int" || t == "float";
+}
+
+bool isBool(string t) {
+	return t == "bool";
+}
+
+bool relacionalCompativel(string op, string t1, string t2) {
+	if(op == "<" || op == "<=" || op == ">" || op == ">=") {
+		return isNumerico(t1) && isNumerico(t2);
+	}
+
+	if(op == "==" || op == "!=") {
+		if(isNumerico(t1) && isNumerico(t2)) return true;
+
+		return t1 == t2;
+	}
+
+	return false;
+}
+
+bool logicoCompativel(string t1, string t2) {
+	return t1 == "bool" && t2 == "bool";
 }
 
 bool atribuicaoCompativel(string t1, string t2) {
